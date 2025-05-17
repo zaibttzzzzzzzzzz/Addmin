@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Previous Head Content -->
+    <style>
+        .admin-panel { background: #f8f9fa; border-radius: 15px; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+        .nav-pills .nav-link { color: #2ecc71; }
+        .nav-pills .nav-link.active { background: #2ecc71!important; }
+        .user-table th { background: #2ecc71!important; color: white; }
+        .task-card { transition: all 0.3s; }
+        .task-card:hover { transform: translateY(-3px); }
+    </style>
+</head>
+<body class="bg-light">
+
+<!-- Admin Panel Section -->
+<div class="container mt-5">
+    <div class="admin-panel p-4">
+        <!-- Admin Navigation -->
+        <ul class="nav nav-pills mb-4">
+            <li class="nav-item">
+                <a class="nav-link active" href="#users" data-bs-toggle="tab">Users</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#tasks" data-bs-toggle="tab">Tasks</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#analytics" data-bs-toggle="tab">Analytics</a>
+            </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content">
+            <!-- Users Tab -->
+            <div class="tab-pane active" id="users">
+                <div class="table-responsive">
+                    <table class="table user-table">
+                        <thead>
+                            <tr>
+                                <th>Email</th>
+                                <th>Balance</th>
+                                <th>Withdrawn</th>
+                                <th>Last Login</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminUserList">
+                            <!-- Users will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tasks Tab -->
+            <div class="tab-pane" id="tasks">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card task-card">
+                            <div class="card-body">
+                                <h5>Add New Task</h5>
+                                <input type="text" id="taskTitle" class="form-control mb-2" placeholder="Task Title">
+                                <input type="url" id="taskUrl" class="form-control mb-2" placeholder="Task URL">
+                                <input type="number" id="taskReward" class="form-control mb-2" placeholder="Reward (PKR)">
+                                <button class="btn btn-success w-100" onclick="adminAddTask()">Add Task</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card task-card">
+                            <div class="card-body">
+                                <h5>Active Tasks</h5>
+                                <ul class="list-group" id="adminTaskList">
+                                    <!-- Tasks will be loaded here -->
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Tab -->
+            <div class="tab-pane" id="analytics">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5>Top Earners</h5>
+                                <ol class="list-group" id="topEarners">
+                                    <!-- Top earners list -->
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5>Statistics</h5>
+                                <ul class="list-group">
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        Total Users: <span id="totalUsers">0</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        Total Earnings: <span id="totalEarnings">0 PKR</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Admin Password
+const ADMIN_PASSWORD = "zaib331099";
+
+// Enhanced Admin Functions
+function loadAdminPanel() {
+    // Load Users
+    const users = JSON.parse(localStorage.getItem('pakEarnUsers')) || [];
+    const userList = document.getElementById('adminUserList');
+    userList.innerHTML = users.map(user => `
+        <tr>
+            <td>${user.email}</td>
+            <td>${user.balance} PKR</td>
+            <td>${user.withdrawn} PKR</td>
+            <td>${new Date(user.lastLogin).toLocaleString()}</td>
+            <td>${user.blocked ? '<span class="badge bg-danger">Blocked</span>' : '<span class="badge bg-success">Active</span>'}</td>
+            <td>
+                <button class="btn btn-sm ${user.blocked ? 'btn-success' : 'btn-danger'}" 
+                    onclick="toggleUserBlock('${user.email}')">
+                    ${user.blocked ? 'Unblock' : 'Block'}
+                </button>
+            </td>
+        </tr>
+    `).join('');
+
+    // Load Tasks
+    const tasks = JSON.parse(localStorage.getItem('pakEarnTasks')) || [];
+    document.getElementById('adminTaskList').innerHTML = tasks.map((task, index) => `
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            ${task.title} (${task.reward} PKR)
+            <div>
+                <button class="btn btn-sm btn-danger" onclick="deleteTask(${index})">Delete</button>
+            </div>
+        </li>
+    `).join('');
+
+    // Load Analytics
+    const totalEarnings = users.reduce((sum, user) => sum + user.withdrawn, 0);
+    document.getElementById('totalUsers').textContent = users.length;
+    document.getElementById('totalEarnings').textContent = totalEarnings + ' PKR';
+
+    // Top Earners
+    const topEarners = users.sort((a,b) => b.balance - a.balance).slice(0,5);
+    document.getElementById('topEarners').innerHTML = topEarners.map(user => `
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            ${user.email}
+            <span class="badge bg-success">${user.balance} PKR</span>
+        </li>
+    `).join('');
+}
+
+function toggleUserBlock(email) {
+    const users = JSON.parse(localStorage.getItem('pakEarnUsers')) || [];
+    const user = users.find(u => u.email === email);
+    if(user) {
+        user.blocked = !user.blocked;
+        localStorage.setItem('pakEarnUsers', JSON.stringify(users));
+        loadAdminPanel();
+    }
+}
+
+function adminAddTask() {
+    const tasks = JSON.parse(localStorage.getItem('pakEarnTasks')) || [];
+    
+    tasks.push({
+        title: document.getElementById('taskTitle').value,
+        url: document.getElementById('taskUrl').value,
+        reward: parseInt(document.getElementById('taskReward').value)
+    });
+
+    localStorage.setItem('pakEarnTasks', JSON.stringify(tasks));
+    loadAdminPanel();
+    alert("Task added successfully!");
+}
+
+function deleteTask(index) {
+    const tasks = JSON.parse(localStorage.getItem('pakEarnTasks')) || [];
+    tasks.splice(index, 1);
+    localStorage.setItem('pakEarnTasks', JSON.stringify(tasks));
+    loadAdminPanel();
+}
+
+// Password Verification (Add to your existing login flow)
+function verifyAdmin() {
+    const enteredPass = prompt("Enter Admin Password:");
+    if(enteredPass === ADMIN_PASSWORD) {
+        document.getElementById('adminPanel').style.display = 'block';
+        loadAdminPanel();
+    } else {
+        alert("Invalid admin password!");
+    }
+}
+</script>
+
+<!-- Add this button in your dashboard -->
+<button class="btn btn-dark" onclick="verifyAdmin()" style="position:fixed; bottom:20px; right:20px;">
+    Admin Panel 🔒
+</button>
